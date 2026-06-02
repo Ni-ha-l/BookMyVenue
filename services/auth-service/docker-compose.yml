@@ -1,0 +1,73 @@
+version: '3.9'
+
+services:
+  auth-service:
+    build:
+      context: .
+      target: production
+    container_name: bookmyvenue-auth-service
+    ports:
+      - '3001:3001'
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - MONGODB_URI=mongodb://mongodb:27017/bookmyvenue_auth
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - REDIS_URL=redis://redis:6379
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+      - CLIENT_URL=${CLIENT_URL}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - bookmyvenue-network
+
+  mongodb:
+    image: mongo:7-jammy
+    container_name: bookmyvenue-mongodb
+    environment:
+      MONGO_INITDB_DATABASE: bookmyvenue_auth
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - '27017:27017'
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', 'db.adminCommand("ping")']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bookmyvenue-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: bookmyvenue-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bookmyvenue-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  bookmyvenue-network:
+    driver: bridge
